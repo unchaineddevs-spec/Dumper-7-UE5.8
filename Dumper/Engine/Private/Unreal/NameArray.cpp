@@ -711,8 +711,10 @@ void NameArray::PostInit()
 {
 	if (GNames && Settings::Internal::bUseNamePool)
 	{
-		// Reverse-order iteration because newer objects are more likely to have a chunk-index equal to NumChunks - 1
-		
+		// UE 5.8+: FNamePool supports non-power-of-two shard counts, but the chunk storage
+		// still uses power-of-two block offset bits. This loop finds the correct bit count by
+		// iterating from 0xE upward until all object names resolve to valid chunk indices.
+
 		NameArray::FNameBlockOffsetBits = 0xE;
 
 		int i = ObjectArray::Num();
@@ -736,6 +738,14 @@ void NameArray::PostInit()
 			if (ObjNameChunkIdx > CurrentBlock)
 			{
 				NameArray::FNameBlockOffsetBits++;
+
+				// Safety: block offset bits should never exceed 0x1F (31 bits)
+				if (NameArray::FNameBlockOffsetBits > 0x1F)
+				{
+					std::cerr << "NameArray::PostInit: FNameBlockOffsetBits exceeded max (0x1F), aborting\n" << std::endl;
+					break;
+				}
+
 				i = ObjectArray::Num();
 			}
 

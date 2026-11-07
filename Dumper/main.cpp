@@ -28,12 +28,12 @@ DWORD MainThread(HMODULE Module)
 	std::cerr.clear(); // clear internal error flags on cerr after redirect
 	std::cerr << std::boolalpha << std::hex;
 
-	std::cerr << "Initializing [Dumper-7]\n";
+	std::cerr << "Initializing [Dumper-7 UE5.8]\n";
 
 	Settings::Config::Load();
 	Settings::Config::DelayDumperStart();
 
-	std::cerr << "Started Generation [Dumper-7]!\n";
+	std::cerr << "Started Generation [Dumper-7 UE5.8]!\n";
 	auto DumpStartTime = std::chrono::high_resolution_clock::now();
 
 	Generator::InitEngineCore();
@@ -69,7 +69,7 @@ DWORD MainThread(HMODULE Module)
 	{
 		if (GetAsyncKeyState(VK_F6) & 1 || Settings::Config::bShouldAutoUnload)
 		{
-			std::cerr << "\nUnloaded [Dumper-7]\n";
+			std::cerr << "\nUnloaded [Dumper-7 UE5.8]\n";
 
 			fclose(stderr);
 			if (Dummy) 
