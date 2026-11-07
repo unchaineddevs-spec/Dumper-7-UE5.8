@@ -33,13 +33,21 @@ constexpr inline std::array FChunkedFixedUObjectArrayLayouts =
 		.MaxChunksOffset = 0x18,
 		.NumChunksOffset = 0x1C,
 	},
-	FChunkedFixedUObjectArrayLayout // UE5.8 Developement Build
+	FChunkedFixedUObjectArrayLayout // UE5.8 Development Build (reordered header)
 	{
-		.ObjectsOffset = 0x00, 
+		.ObjectsOffset = 0x00,
 		.MaxElementsOffset = 0x0C,
 		.NumElementsOffset = 0x08,
 		.MaxChunksOffset = 0x14,
 		.NumChunksOffset = 0x10,
+	},
+	FChunkedFixedUObjectArrayLayout // UE5.8 Shipping Build (same reorder, different packing)
+	{
+		.ObjectsOffset = 0x00,
+		.MaxElementsOffset = 0x08,
+		.NumElementsOffset = 0x0C,
+		.MaxChunksOffset = 0x10,
+		.NumChunksOffset = 0x14,
 	},
 	FChunkedFixedUObjectArrayLayout // Back4Blood
 	{
@@ -212,7 +220,7 @@ void ObjectArray::Init(bool bScanAllMemory, const char* const ModuleName)
 {
 	if (!bScanAllMemory)
 	{
-		std::cerr << "\nDumper-7 by me, you & him\n\n\n";
+		std::cerr << "\nDumper-7 UE5.8 Fork | Based on Encryqed/Dumper-7\n\n\n";
 		std::cerr << "Searching for GObjects...\n\n";
 	}
 

@@ -136,6 +136,7 @@ namespace Off
 	namespace FField
 	{
 		// Fixed for CasePreserving FNames by OffsetFinder::FixupHardcodedOffsets();
+		// UE 5.8: Bind(), PostLoad(), BeginDestroy() removed from FField vtable — vtable layout changed
 		inline int32 Vft = 0x00;
 		inline int32 Class = 0x08;
 		inline int32 Owner = 0x10;
@@ -150,9 +151,10 @@ namespace Off
 	{
 		// Fixed for CasePreserving FNames by OffsetFinder::FixupHardcodedOffsets();
 		// Fixed for OutlineNumber FNames by OffsetFinder::FixFNameSize();
+		// UE 5.7+: CastFlags moved from 0x10 to 0x18; dynamically resolved by FindFieldClassCastFlagsOffset()
 		inline int32 Name = 0x00;
 		inline int32 Id = 0x08;
-		inline int32 CastFlags = 0x10; // 0x18 on UE5.7
+		inline int32 CastFlags = 0x10;
 		inline int32 ClassFlags = 0x18;
 		inline int32 SuperClass = 0x20;
 	}
