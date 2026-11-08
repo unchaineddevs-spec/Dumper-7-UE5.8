@@ -12,6 +12,15 @@
 #include "Json/json.hpp"
 
 #include <fstream>
+#include <cstdio>
+
+extern FILE* g_LogFile;
+
+static void DebugLogGen(const char* msg)
+{
+	std::cerr << msg << std::endl;
+	if (g_LogFile) { fputs(msg, g_LogFile); fputc('\n', g_LogFile); fflush(g_LogFile); }
+}
 
 inline void InitSettings()
 {
@@ -42,22 +51,32 @@ void Generator::InitEngineCore()
 	/* Multiversus [Unsupported, weird GObjects-struct] */
 	//InitObjectArrayDecryption([](void* ObjPtr) -> uint8* { return reinterpret_cast<uint8*>(uint64(ObjPtr) ^ 0x1B5DEAFD6B4068C); });
 
+	DebugLogGen("[InitEngineCore] ObjectArray::Init()...");
 	ObjectArray::Init();
 
-	CALL_PLATFORM_SPECIFIC_FUNCTION(FName::Init);
+	DebugLogGen("[InitEngineCore] FName::Init(bForceGNames=true)...");
+	CALL_PLATFORM_SPECIFIC_FUNCTION(FName::Init, true);
 
+	DebugLogGen("[InitEngineCore] Off::Init()...");
 	Off::Init();
+	DebugLogGen("[InitEngineCore] PropertySizes::Init()...");
 	PropertySizes::Init();
 
+	DebugLogGen("[InitEngineCore] ProcessEvent::InitPE()...");
 	CALL_PLATFORM_SPECIFIC_FUNCTION(Off::InSDK::ProcessEvent::InitPE); // Must be at this position, relies on offsets initialized in Off::Init()
 
+	DebugLogGen("[InitEngineCore] InitFindFunctionChecked()...");
 	Off::InSDK::Find::InitFindFunctionChecked();
 
+	DebugLogGen("[InitEngineCore] InitGWorld()...");
 	Off::InSDK::World::InitGWorld(); // Must be at this position, relies on offsets initialized in Off::Init()
 
+	DebugLogGen("[InitEngineCore] InitTextOffsets()...");
 	Off::InSDK::Text::InitTextOffsets(); // Must be at this position, relies on offsets initialized in Off::InitPE()
 
+	DebugLogGen("[InitEngineCore] InitSettings()...");
 	InitSettings();
+	DebugLogGen("[InitEngineCore] Done!");
 }
 
 void Generator::InitInternal()

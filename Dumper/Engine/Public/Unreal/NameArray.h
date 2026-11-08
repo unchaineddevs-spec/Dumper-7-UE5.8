@@ -53,7 +53,9 @@ public:
 	/* Should be changed later and combined */
 	static bool TryFindNameArray_Windows();
 	static bool TryFindNamePool_Windows();
+	static bool TryFindNamePoolCtorXref_Windows();
 	static bool TryFindNamePoolLazyInit_Windows();
+	static bool TryFindNamePoolBruteForce_Windows();
 
 	static bool TryInit(bool bIsTestOnly = false);
 	static bool TryInit(int32 OffsetOverride, bool bIsNamePool, const char* const ModuleName = Settings::General::DefaultModuleName);

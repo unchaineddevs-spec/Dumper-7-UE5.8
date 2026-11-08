@@ -7,7 +7,7 @@ Fork of [Encryqed/Dumper-7](https://github.com/Encryqed/Dumper-7) with enhanced 
 
 An SDK generator for Unreal Engine games. It is compiled as an x64 DLL, injected into the target game process, and generates a full C++ SDK from the engine's live reflection data (GObjects, GNames, UClass, FField, etc.).
 
-Supported versions: **UE4.11 through UE5.8**.
+Supported versions: **UE4.11 through UE5.8**. Tested against ARK: Survival Ascended v97 (UE 5.8.3).
 
 ## UE 5.8 Changes in This Fork
 
@@ -20,11 +20,15 @@ UE 5.8 introduced several internal changes that affect SDK generators:
 - UE 5.8 removed the virtual functions `Bind()`, `PostLoad()`, and `BeginDestroy()` from FField, changing the vtable slot layout
 - The dumper dynamically discovers FField offsets, so this is handled automatically
 
-### FNamePool
-- UE 5.8 replaced the `FNameEntryId` hash function for better distribution
-- Added support for non-power-of-two FNamePool shard counts
-- The dumper reads FNamePool data directly (not through the hash table) and dynamically finds `FNameBlockOffsetBits`, so these changes are handled without manual overrides
-- Added bounds checking for `FNameBlockOffsetBits` detection to prevent infinite loops
+### FNamePool / GNames
+- `FNamePool::FNamePool` in UE 5.8 zero-initializes its `FRWLock` with a plain store instead of calling `InitializeSRWLock`, and the inlined `GetNamePool()` lazy-init sites look like `lea rcx, NamePoolData; <spill>; jne; call FNamePool::FNamePool`. Upstream's two GNames finders depend on exactly those two details, so they fail on UE 5.8 games (verified on ARK: Survival Ascended v97)
+- New finder `NameArray::TryFindNamePoolCtorXref_Windows()`: locates the constructor through its reference to the hardcoded `"ByteProperty"` name (registered right after `"None"`), resolves the function start through the exception directory (`RtlLookupFunctionEntry`), scans `.text` for calls to it and takes the `lea rcx` in front of each call as `NamePoolData`. Candidates are validated by checking that `Blocks[0]` starts with the `None` entry
+- The pool layout itself is unchanged (`CurrentBlock` at +0x8, `Blocks` at +0x10, 0x20000-byte blocks = 16 offset bits); `FNameBlockOffsetBits` is still determined dynamically, with bounds checking to prevent infinite loops
+- The brute-force fallback no longer requires a NUL byte after `None`, since UE5 name entries are not NUL-terminated
+- A `Dumper7_debug.log` with every discovery step is written next to the game executable
+
+### FFieldClass
+- UE 5.8 inserts a type-descriptor pointer at offset 0, shifting `Name` (0x08), `ClassFlags` (0x10), `Id` (0x18), `CastFlags` (0x20) and `SuperClass` (0x28). The new layout is detected at runtime when the dynamically found `CastFlags` lands at or beyond the old `SuperClass` offset (ported from upstream [PR #594](https://github.com/Encryqed/Dumper-7/pull/594) / [issue #544](https://github.com/Encryqed/Dumper-7/issues/544))
 
 ### UScriptStruct
 - Added `STRUCT_MoveAssignNative` flag (0x01000000) and corresponding `MoveAssign` fake-vtable entry

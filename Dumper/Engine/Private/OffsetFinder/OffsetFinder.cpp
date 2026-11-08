@@ -665,6 +665,32 @@ int32_t OffsetFinder::FindFieldClassCastFlagsOffset()
 void OffsetFinder::FixupFieldClassOffsets()
 {
 	/*
+	* UE5.8 adds a pointer (type descriptor) in front of the name, moving every member back by 0x8:
+	*
+	* struct FFieldClass
+	* {
+	*     void* Descriptor;              // 0x00
+	*     FName Name;                    // 0x08
+	*     EClassFlags ClassFlags;        // 0x10
+	*     uint32 Padding;                // 0x14
+	*     EFieldClassID Id;              // 0x18
+	*     EClassCastFlags CastFlags;     // 0x20
+	*     FFieldClass* SuperClass;       // 0x28
+	* };
+	*
+	* On every older layout the dynamically found CastFlags lies below the hardcoded SuperClass offset (0x20).
+	* See https://github.com/Encryqed/Dumper-7/issues/544 and https://github.com/Encryqed/Dumper-7/pull/594.
+	*/
+	if (Off::FFieldClass::CastFlags >= Off::FFieldClass::SuperClass)
+	{
+		Off::FFieldClass::Name = sizeof(void*);
+		Off::FFieldClass::ClassFlags = Off::FFieldClass::Id + sizeof(void*);
+		Off::FFieldClass::Id = Off::FFieldClass::CastFlags - sizeof(EFieldClassID);
+		Off::FFieldClass::SuperClass = Off::FFieldClass::CastFlags + sizeof(EClassCastFlags);
+		return;
+	}
+
+	/*
 	* UE5.7 uses this FFieldClass layout with an 8-byte FName:
 	*
 	* struct FFieldClass

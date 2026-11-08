@@ -2,6 +2,9 @@
 #include <iostream>
 #include <chrono>
 #include <fstream>
+#include <cstdio>
+
+FILE* g_LogFile = nullptr;
 
 #include "Generators/CppGenerator.h"
 #include "Generators/MappingGenerator.h"
@@ -28,7 +31,21 @@ DWORD MainThread(HMODULE Module)
 	std::cerr.clear(); // clear internal error flags on cerr after redirect
 	std::cerr << std::boolalpha << std::hex;
 
+	char logPath[MAX_PATH];
+	GetModuleFileNameA(nullptr, logPath, MAX_PATH);
+	char* lastSlash = strrchr(logPath, '\\');
+	if (lastSlash) *(lastSlash + 1) = '\0';
+	strcat_s(logPath, "Dumper7_debug.log");
+	fopen_s(&g_LogFile, logPath, "w");
+	if (g_LogFile)
+	{
+		fprintf(g_LogFile, "Dumper-7 UE5.8 Debug Log\n");
+		fprintf(g_LogFile, "Log path: %s\n\n", logPath);
+		fflush(g_LogFile);
+	}
+
 	std::cerr << "Initializing [Dumper-7 UE5.8]\n";
+	std::cerr << "Debug log: " << logPath << "\n";
 
 	Settings::Config::Load();
 	Settings::Config::DelayDumperStart();

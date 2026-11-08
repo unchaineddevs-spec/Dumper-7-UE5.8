@@ -1,4 +1,5 @@
 #include <format>
+#include <cstdio>
 
 #include "Utils.h"
 
@@ -10,6 +11,13 @@
 
 #include "Platform.h"
 #include "Architecture.h"
+
+extern FILE* g_LogFile;
+static void DebugLogOff(const char* msg)
+{
+	std::cerr << msg << std::endl;
+	if (g_LogFile) { fputs(msg, g_LogFile); fputc('\n', g_LogFile); fflush(g_LogFile); }
+}
 
 
 void Off::InSDK::ProcessEvent::InitPE_Windows()
@@ -318,6 +326,7 @@ void Off::Init()
 		}
 	};
 
+	DebugLogOff("[Off::Init] Finding UObject offsets...");
 	Off::UObject::Flags = OffsetFinder::FindUObjectFlagsOffset();
 	OverwriteIfInvalidOffset(Off::UObject::Flags, sizeof(void*)); // Default to right after VTable
 	std::cerr << std::format("Off::UObject::Flags: 0x{:X}\n", Off::UObject::Flags);
@@ -339,49 +348,70 @@ void Off::Init()
 
 	OverwriteIfInvalidOffset(Off::UObject::Outer, (Off::UObject::Name + sizeof(int32) + sizeof(int32)));  // Default to right after Name
 
+	DebugLogOff("[Off::Init] InitFNameSettings...");
 	OffsetFinder::InitFNameSettings();
 
+	DebugLogOff("[Off::Init] NameArray::PostInit...");
 	::NameArray::PostInit();
 
-	// Castflags needs to stay here since the FindChildOffset() uses CastFlags
+	DebugLogOff("[Off::Init] FindCastFlagsOffset...");
 	Off::UClass::CastFlags = OffsetFinder::FindCastFlagsOffset();
+	{ char b[64]; sprintf_s(b, "[Off::Init] CastFlags: 0x%X", Off::UClass::CastFlags); DebugLogOff(b); }
 	std::cerr << std::format("Off::UClass::CastFlags: 0x{:X}\n", Off::UClass::CastFlags);
 
+	DebugLogOff("[Off::Init] FindChildOffset...");
 	Off::UStruct::Children = OffsetFinder::FindChildOffset();
+	{ char b[64]; sprintf_s(b, "[Off::Init] Children: 0x%X", Off::UStruct::Children); DebugLogOff(b); }
 	std::cerr << std::format("Off::UStruct::Children: 0x{:X}\n", Off::UStruct::Children);
 
+	DebugLogOff("[Off::Init] FindUFieldNextOffset...");
 	Off::UField::Next = OffsetFinder::FindUFieldNextOffset();
+	{ char b[64]; sprintf_s(b, "[Off::Init] UField::Next: 0x%X", Off::UField::Next); DebugLogOff(b); }
 	std::cerr << std::format("Off::UField::Next: 0x{:X}\n", Off::UField::Next);
 
+	DebugLogOff("[Off::Init] FindSuperOffset...");
 	Off::UStruct::SuperStruct = OffsetFinder::FindSuperOffset();
+	{ char b[64]; sprintf_s(b, "[Off::Init] SuperStruct: 0x%X", Off::UStruct::SuperStruct); DebugLogOff(b); }
 	std::cerr << std::format("Off::UStruct::SuperStruct: 0x{:X}\n", Off::UStruct::SuperStruct);
 
+	DebugLogOff("[Off::Init] FindStructSizeOffset...");
 	Off::UStruct::Size = OffsetFinder::FindStructSizeOffset();
+	{ char b[64]; sprintf_s(b, "[Off::Init] Size: 0x%X", Off::UStruct::Size); DebugLogOff(b); }
 	std::cerr << std::format("Off::UStruct::Size: 0x{:X}\n", Off::UStruct::Size);
 
+	DebugLogOff("[Off::Init] FindMinAlignmentOffset...");
 	Off::UStruct::MinAlignment = OffsetFinder::FindMinAlignmentOffset();
+	{ char b[64]; sprintf_s(b, "[Off::Init] MinAlignment: 0x%X", Off::UStruct::MinAlignment); DebugLogOff(b); }
 	std::cerr << std::format("Off::UStruct::MinAlignment: 0x{:X}\n", Off::UStruct::MinAlignment);
 
+	DebugLogOff("[Off::Init] FindCastFlagsOffset (2nd)...");
 	Off::UClass::CastFlags = OffsetFinder::FindCastFlagsOffset();
+	{ char b[64]; sprintf_s(b, "[Off::Init] CastFlags (2nd): 0x%X", Off::UClass::CastFlags); DebugLogOff(b); }
 	std::cerr << std::format("Off::UClass::CastFlags: 0x{:X}\n", Off::UClass::CastFlags);
 
 	// Castflags become available for use
 
 	if (Settings::Internal::bUseFProperty)
 	{
+		DebugLogOff("[Off::Init] Game uses FProperty system, finding FProperty offsets...");
 		std::cerr << std::format("\nGame uses FProperty system\n\n");
 
+		DebugLogOff("[Off::Init] FindChildPropertiesOffset...");
 		Off::UStruct::ChildProperties = OffsetFinder::FindChildPropertiesOffset();
 		std::cerr << std::format("Off::UStruct::ChildProperties: 0x{:X}\n", Off::UStruct::ChildProperties);
 
-		OffsetFinder::FixupHardcodedOffsets(); // must be called after FindChildPropertiesOffset 
+		DebugLogOff("[Off::Init] FixupHardcodedOffsets...");
+		OffsetFinder::FixupHardcodedOffsets(); // must be called after FindChildPropertiesOffset
 
+		DebugLogOff("[Off::Init] FindFFieldNextOffset...");
 		Off::FField::Next = OffsetFinder::FindFFieldNextOffset();
 		std::cerr << std::format("Off::FField::Next: 0x{:X}\n", Off::FField::Next);
 
+		DebugLogOff("[Off::Init] FindFFieldClassOffset...");
 		Off::FField::Class = OffsetFinder::FindFFieldClassOffset();
 		std::cerr << std::format("Off::FField::Class: 0x{:X}\n", Off::FField::Class);
 
+		DebugLogOff("[Off::Init] FindFFieldNameOffset...");
 		// Comment out this line if you're crashing here and see if the NewFindFFieldNameOffset might work!
 		Off::FField::Name = OffsetFinder::FindFFieldNameOffset();
 		//Off::FField::Name = OffsetFinder::NewFindFFieldNameOffset();

@@ -1,5 +1,7 @@
 
 #include <format>
+#include <cstdio>
+#include <cstring>
 
 #include "Unreal/UnrealTypes.h"
 #include "Unreal/NameArray.h"
@@ -7,6 +9,60 @@
 #include "Encoding/UnicodeNames.h"
 
 #include "Architecture.h"
+
+extern FILE* g_LogFile;
+
+static void DebugLogFN(const char* msg)
+{
+	std::cerr << msg << std::endl;
+	if (g_LogFile) { fputs(msg, g_LogFile); fputc('\n', g_LogFile); fflush(g_LogFile); }
+}
+
+// SEH wrapper for individual AppendString calls during iteration
+static bool SafeAppendStringCall(void(*Fn)(const void*, FString&), const void* Name, FString& OutStr)
+{
+	__try
+	{
+		Fn(Name, OutStr);
+		return true;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		return false;
+	}
+}
+
+// Standalone SEH function — no C++ objects with destructors allowed
+static bool TestAppendStringSafe(void(*Fn)(const void*, FString&))
+{
+	static wchar_t s_TestBuf[256];
+	memset(s_TestBuf, 0, sizeof(s_TestBuf));
+
+	// POD struct matching FString (TArray<wchar_t>) layout: {wchar_t* Data, int32 Num, int32 Max}
+	struct RawFStr { void* Data; int Num; int Max; };
+	RawFStr rawStr;
+	rawStr.Data = s_TestBuf;
+	rawStr.Num = 0;
+	rawStr.Max = 256;
+
+	// FName with ComparisonIndex=0 ("None"), Number=0
+	uint8_t noneName[8];
+	memset(noneName, 0, sizeof(noneName));
+
+	__try
+	{
+		Fn(noneName, reinterpret_cast<FString&>(rawStr));
+		return true;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		DWORD code = GetExceptionCode();
+		char buf[128];
+		sprintf_s(buf, "  AppendString test CRASHED (exception 0x%08X)", code);
+		DebugLogFN(buf);
+		return false;
+	}
+}
 
 
 std::string MakeNameValid(std::wstring&& Name)
@@ -149,7 +205,30 @@ void FName::Init_Windows(bool bForceGNames)
 	if (AppendString == nullptr)
 		AppendString = static_cast<decltype(AppendString)>(TryFindApendStringBackupStringRef_Windows());
 
-	Off::InSDK::Name::AppendNameToString = AppendString && !bForceGNames ? Platform::GetOffset(AppendString) : 0x0;
+	// Verify AppendString actually works before committing to it
+	if (AppendString && !bForceGNames)
+	{
+		char addrBuf[128];
+		sprintf_s(addrBuf, "  Testing AppendString at offset 0x%llX...", (unsigned long long)Platform::GetOffset(AppendString));
+		DebugLogFN(addrBuf);
+
+		if (!TestAppendStringSafe(AppendString))
+		{
+			DebugLogFN("  AppendString FAILED — falling back to GNames mode");
+			AppendString = nullptr;
+			ToStr = nullptr;
+			GetNameEntryFromName = nullptr;
+			Off::InSDK::Name::bIsAppendStringInlinedAndUsed = false;
+		}
+		else
+		{
+			DebugLogFN("  AppendString test OK");
+		}
+	}
+
+	// Always set the offset if AppendString was found — TryFindNamePoolLazyInit and
+	// the brute-force Phase 0 need it to scan AppendString's code for FNamePool lea.
+	Off::InSDK::Name::AppendNameToString = AppendString ? Platform::GetOffset(AppendString) : 0x0;
 
 	if (!AppendString || bForceGNames)
 	{
@@ -192,7 +271,21 @@ void FName::Init_Windows(bool bForceGNames)
 	{
 		thread_local FFreableString TempString(1024);
 
-		AppendString(Name, TempString);
+		if (!SafeAppendStringCall(AppendString, Name, TempString))
+		{
+			static bool bLoggedFirstCrash = false;
+			if (!bLoggedFirstCrash)
+			{
+				bLoggedFirstCrash = true;
+				const uint8_t* raw = static_cast<const uint8_t*>(Name);
+				char buf[256];
+				sprintf_s(buf, "  AppendString CRASH during iteration! FName bytes: %02X %02X %02X %02X %02X %02X %02X %02X",
+					raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7]);
+				DebugLogFN(buf);
+			}
+			TempString.ResetNum();
+			return std::wstring(L"INVALID_NAME");
+		}
 
 		std::wstring OutputString = TempString.ToWString();
 		TempString.ResetNum();
